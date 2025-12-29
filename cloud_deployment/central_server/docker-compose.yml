@@ -27,48 +27,35 @@ services:
             - KAFKA_CFG_LISTENERS=INTERNAL://:9092,EXTERNAL://:9093
             - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
             # REPLACE <PUBLIC_IP> with the actual Public IP of this VM!
-            - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://${CENTRAL_VM_IP}:9093
+            - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://13.53.199.139:9093
         depends_on:
             - zookeeper
         networks:
-            - central-net
-
-    postgres:
-        image: postgres:15-alpine
-        container_name: postgres-db
-        ports:
-            - "5432:5432"
-        environment:
-            - POSTGRES_USER=admin
-            - POSTGRES_PASSWORD=password
-            - POSTGRES_DB=weather_db
-        volumes:
-            - postgres_data:/var/lib/postgresql/data
-            # You need to ensure the init.sql is present in the same directory or adjust path
-            - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-        networks:
-            - central-net
+            central-net:
+                aliases:
+                    - kafka-service
 
     central-station:
         image: hanine-weather-app:latest
         # Assuming code is cloned on VM, or use pre-built image
-        build: ../..
+        build: ..
         container_name: central-station
         command: ["com.netcentric.lab4.central.CentralStation"]
         environment:
             - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-            - POSTGRES_DB=weather_db
-            - POSTGRES_USER=admin
-            - POSTGRES_PASSWORD=password
+            - POSTGRES_DB=railway
+            - POSTGRES_USER=postgres
+            - DATABASE_URL=jdbc:postgresql://interchange.proxy.rlwy.net:47527/railway
+            - POSTGRES_PASSWORD=wOAUkXZizZKCKHJpwkeLHwDqvTJhJpWY
         depends_on:
             - kafka
-            - postgres
+            - zookeeper
         networks:
             - central-net
 
     rain-detector:
         image: hanine-weather-app:latest
-        build: ../..
+        build: ..
         container_name: rain-detector
         command: ["com.netcentric.lab4.processor.RainingTrigger"]
         environment:

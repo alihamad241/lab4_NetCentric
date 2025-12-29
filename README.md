@@ -132,28 +132,26 @@ kubectl exec -it $(kubectl get po -l app=postgres -o jsonpath='{.items[0].metada
 
 ### Check Battery Status Distribution
 
-```bash
-kubectl exec -it $(kubectl get po -l app=postgres -o jsonpath='{.items[0].metadata.name}') \
-  -- psql -U admin -d weather_db -c \
-  "SELECT station_id, battery_status, COUNT(*) as count,
-   ROUND((COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY station_id)), 2) as percentage
-   FROM weather_readings WHERE station_id = 1
-   GROUP BY station_id, battery_status
-   ORDER BY station_id, battery_status;"
-```
+````bash
+### Database Analysis
 
-Expected distribution: ~30% low, ~40% medium, ~30% high
-
-### Run Full Analysis
+Since you are using a Cloud Database (Railway), you can run the analysis directly from your terminal:
 
 ```bash
-# Copy analysis script
-kubectl cp k8s/analysis.sql $(kubectl get po -l app=postgres -o jsonpath='{.items[0].metadata.name}'):/tmp/
+# Execute analysis on Cloud DB
+psql -h interchange.proxy.rlwy.net -p 47527 -U postgres -d railway -f k8s/analysis.sql
+````
 
-# Execute analysis
-kubectl exec -it $(kubectl get po -l app=postgres -o jsonpath='{.items[0].metadata.name}') \
-  -- psql -U admin -d weather_db -f /tmp/analysis.sql
+# Connect to Cloud DB
+
+```bash
+psql -h interchange.proxy.rlwy.net -p 47527 -U postgres -d railway
 ```
+
+<details>
+  <summary>Click to show Password</summary>
+  <code>wOAUkXZizZKCKHJpwkeLHwDqvTJhJpWY</code>
+</details>
 
 ### Check Kafka Messages
 

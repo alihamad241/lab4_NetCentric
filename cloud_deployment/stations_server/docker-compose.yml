@@ -3,15 +3,16 @@ version: "3.8"
 services:
     weather-station:
         image: hanine-weather-app:latest
-        # Assuming code is cloned, or use pre-built image
-        build: ../..
+        build: ..
+        # Override bootstrap.servers and pass unique station ID
         command: ["com.netcentric.lab4.station.WeatherStation"]
+        extra_hosts:
+            - "kafka-service:13.53.199.139"
         environment:
-            # Connect to the Central VM's Public IP on the external port 9093
-            - KAFKA_BOOTSTRAP_SERVERS=${CENTRAL_VM_IP}:9093
-        # No depends_on because Kafka is on another machine
+            - KAFKA_BOOTSTRAP_SERVERS=13.53.199.139:9093
         networks:
             - station-net
+        restart: on-failure
 
 networks:
     station-net:

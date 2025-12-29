@@ -265,5 +265,3 @@ Key environment variables in `k8s/combined-manifests.yaml`:
 | PostgreSQL      | `POSTGRES_PASSWORD`              | `password`           |
 
 ---
-
-## License

@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+    weather-station:
+        image: hanine-weather-app:latest
+        # Assuming code is cloned, or use pre-built image
+        build: ../..
+        command: ["com.netcentric.lab4.station.WeatherStation"]
+        environment:
+            # Connect to the Central VM's Public IP on the external port 9093
+            - KAFKA_BOOTSTRAP_SERVERS=${CENTRAL_VM_IP}:9093
+        # No depends_on because Kafka is on another machine
+        networks:
+            - station-net
+
+networks:
+    station-net:
+        driver: bridge

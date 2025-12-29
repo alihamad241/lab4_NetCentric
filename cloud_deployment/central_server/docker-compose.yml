@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+    zookeeper:
+        image: bitnamilegacy/zookeeper:latest
+        container_name: zookeeper
+        ports:
+            - "2181:2181"
+        environment:
+            - ALLOW_ANONYMOUS_LOGIN=yes
+        networks:
+            - central-net
+
+    kafka:
+        image: bitnamilegacy/kafka:3.3
+        container_name: kafka
+        ports:
+            - "9092:9092" # Internal usage
+            - "9093:9093" # External usage (Stations connect here)
+        environment:
+            - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+            - ALLOW_PLAINTEXT_LISTENER=yes
+            # CRITICAL: Define two listeners.
+            # INTERNAL: Used by local containers (Central Station, Rain Detector)
+            # EXTERNAL: Used by remote Weather Stations on the other VM
+            - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+            - KAFKA_CFG_LISTENERS=INTERNAL://:9092,EXTERNAL://:9093
+            - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+            # REPLACE <PUBLIC_IP> with the actual Public IP of this VM!
+            - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://${CENTRAL_VM_IP}:9093
+        depends_on:
+            - zookeeper
+        networks:
+            - central-net
+
+    postgres:
+        image: postgres:15-alpine
+        container_name: postgres-db
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_USER=admin
+            - POSTGRES_PASSWORD=password
+            - POSTGRES_DB=weather_db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            # You need to ensure the init.sql is present in the same directory or adjust path
+            - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+        networks:
+            - central-net
+
+    central-station:
+        image: hanine-weather-app:latest
+        # Assuming code is cloned on VM, or use pre-built image
+        build: ../..
+        container_name: central-station
+        command: ["com.netcentric.lab4.central.CentralStation"]
+        environment:
+            - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+            - POSTGRES_DB=weather_db
+            - POSTGRES_USER=admin
+            - POSTGRES_PASSWORD=password
+        depends_on:
+            - kafka
+            - postgres
+        networks:
+            - central-net
+
+    rain-detector:
+        image: hanine-weather-app:latest
+        build: ../..
+        container_name: rain-detector
+        command: ["com.netcentric.lab4.processor.RainingTrigger"]
+        environment:
+            - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+        depends_on:
+            - kafka
+        networks:
+            - central-net
+
+networks:
+    central-net:
+        driver: bridge
+
+volumes:
+    postgres_data:

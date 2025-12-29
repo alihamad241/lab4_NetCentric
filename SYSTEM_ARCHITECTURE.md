@@ -56,7 +56,46 @@ We use PostgreSQL 15 for long-term storage. To avoid manual setup, we use the **
 
 ---
 
-## � 4. Kubernetes (The Orchestrator)
+## 🏗️ 4. Detailed Component Breakdown (Java Files)
+
+This section provides a deep dive into the purpose and logic of each Java class in the system.
+
+### 📡 4.1 WeatherStation.java (The Producer)
+
+
+This component simulates a physical IoT weather sensor. Each instance of this class represents one station.
+
+-   **Key Responsibilities**:
+    -   **Data Generation**: Generates random weather metrics (humidity, temperature, wind speed).
+    -   **JSON Serialization**: Uses the `Jackson` library to create a structured JSON payload with a nested `weather` object.
+    -   **10% Message Drop Logic**: Implements a simulation of "network instability" by randomly skipping the production of a message with a 10% probability.
+    -   **Battery Simulation**: Calculates a random battery status following a specific distribution: 30% **low**, 40% **medium**, 30% **high**.
+-   **Kafka Role**: Acts as a **Kafka Producer**, sending data to the `weather_readings` topic. It uses the `station_id` as the message key to ensure all readings from the same station go to the same Kafka partition.
+
+### 🌩️ 4.2 RainingTrigger.java (The Stream Processor)
+
+
+This is a real-time analysis engine built using the **Kafka Streams API**. Unlike a standard consumer, it processes data as it flies through the system.
+
+-   **Key Responsibilities**:
+    -   **Real-time Filtering**: It "listens" to the `weather_readings` topic and immediately discards any records where humidity is $\le 70\%$.
+    -   **Alert Generation**: When humidity exceeds $70\%$, it transforms the raw reading into a high-priority `RAIN_ALERT` JSON object.
+-   **Kafka Role**: It is a dual-role component. It acts as a **Consumer** (reading from `weather_readings`) and a **Producer** (writing alerts back to the `raining_alerts` topic).
+
+### 🏦 4.3 CentralStation.java (The Persistent Consumer)
+
+
+The Central Station is the bridge between the transient world of Kafka and the permanent world of PostgreSQL.
+
+-   **Key Responsibilities**:
+    -   **Multi-topic Consumption**: It is configured to subscribe to the topics and process them for history.
+    -   **Batch Processing**: To avoid overloading the database with thousands of individual `INSERT` commands, it buffers readings in memory.
+    -   **Database Persistence**: Once the buffer reaches a threshold (programmed for 100 for verification), it uses **JDBC Batch Inserts** to save the records to the `weather_readings` table in a single transaction.
+-   **Kafka Role**: Acts purely as a **Kafka Consumer**. It manages its own "Offset," ensuring that if it crashes, it can resume reading from Kafka without skipping any data.
+
+---
+
+## ☸️ 5. Kubernetes (The Orchestrator)
 
 ### What is Kubernetes doing here?
 

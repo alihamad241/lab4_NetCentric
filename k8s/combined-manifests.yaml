@@ -8,6 +8,7 @@ spec:
     accessModes:
         - ReadWriteOnce
     persistentVolumeReclaimPolicy: Retain
+    storageClassName: standard
     hostPath:
         path: /mnt/data/postgres
 
@@ -17,6 +18,7 @@ kind: PersistentVolumeClaim
 metadata:
     name: postgres-pvc
 spec:
+    storageClassName: standard
     accessModes: [ReadWriteOnce]
     resources:
         requests:
@@ -212,12 +214,16 @@ spec:
         spec:
             containers:
                 - name: station
-                  image: hanine-weather-app:latest
+                  image: hanine-weather-app:v3
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.station.WeatherStation"]
                   env:
                       - name: KAFKA_BOOTSTRAP_SERVERS
                         value: "kafka-service:9092"
+                      - name: STATION_ID_ENV
+                        valueFrom:
+                            fieldRef:
+                                fieldPath: metadata.name
 
 ---
 # Central station deployment
@@ -237,7 +243,7 @@ spec:
         spec:
             containers:
                 - name: central
-                  image: hanine-weather-app:latest
+                  image: hanine-weather-app:v3
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.central.CentralStation"]
                   env:
@@ -278,7 +284,7 @@ spec:
         spec:
             containers:
                 - name: detector
-                  image: hanine-weather-app:latest
+                  image: hanine-weather-app:v2
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.processor.RainingTrigger"]
                   env:

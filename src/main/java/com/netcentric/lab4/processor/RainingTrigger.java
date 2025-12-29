@@ -12,7 +12,8 @@ public class RainingTrigger {
     public static void main(String[] args) {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "raining-detector");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        String bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") != null ? System.getenv("KAFKA_BOOTSTRAP_SERVERS") : "kafka-service:9092";
+        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
@@ -21,6 +22,14 @@ public class RainingTrigger {
 
         // 1. Consume from the raw readings topic
         KStream<String, String> readings = builder.stream("weather_readings");
+
+        // DEBUG: Peek at all incoming data
+        readings.peek((key, value) -> {
+            try {
+                JsonNode node = mapper.readTree(value);
+                System.out.println("Processing reading from station " + node.get("station_id").asLong() + " | Humidity: " + node.get("weather").get("humidity").asInt());
+            } catch (Exception e) {}
+        });
 
         // 2. Filter logic: Humidity > 70%
         KStream<String, String> alerts = readings.filter((key, value) -> {
@@ -39,7 +48,10 @@ public class RainingTrigger {
                 alert.put("station_id", node.get("station_id").asLong());
                 alert.put("timestamp", System.currentTimeMillis());
                 alert.put("message", "Heavy rain detected! Humidity: " + node.get("weather").get("humidity").asInt() + "%");
-                return mapper.writeValueAsString(alert);
+                
+                String alertJson = mapper.writeValueAsString(alert);
+                System.out.println("!!! ALERT GENERATED !!! -> " + alertJson); 
+                return alertJson;
              } catch (Exception e) {
                  return "{\"error\": \"Failed to parse\"}";
              }
@@ -51,7 +63,7 @@ public class RainingTrigger {
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();
         
-        System.out.println("Raining Trigger is watching the clouds...");
+        System.out.println("Raining Trigger (v2-verbose) is watching the clouds...");
         
         // Add shutdown hook to stop gracefully
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));

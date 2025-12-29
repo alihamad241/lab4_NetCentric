@@ -9,11 +9,14 @@ import java.util.Random;
 public class WeatherStation {
     public static void main(String[] args) throws Exception {
         // Allow passing ID as arg (e.g., java WeatherStation 5)
-        int stationId = (args.length > 0) ? Integer.parseInt(args[0]) : 1;
+        // Unique ID from Environment (Pod Name) or Arg or Default
+        String envId = System.getenv("STATION_ID_ENV");
+        long stationId = (envId != null) ? (long)Math.abs(envId.hashCode()) : (args.length > 0) ? Long.parseLong(args[0]) : 1L;
         long sNo = 1;
         
         Properties props = new Properties();
-        props.put("bootstrap.servers", "kafka-service:9092");
+        String bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") != null ? System.getenv("KAFKA_BOOTSTRAP_SERVERS") : "kafka-service:9092";
+        props.put("bootstrap.servers", bootstrapServers);
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 

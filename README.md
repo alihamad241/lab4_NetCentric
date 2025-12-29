@@ -172,7 +172,7 @@ kubectl exec -it kafka-0 -- kafka-console-consumer.sh \
 
 ```bash
 # Weather stations
-kubectl logs -l app=weather-stations --tail=10
+kubectl logs -l app=weather-station --tail=10
 
 # Central station
 kubectl logs -l app=central-station

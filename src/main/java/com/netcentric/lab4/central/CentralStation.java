@@ -8,13 +8,14 @@ import java.time.Duration;
 import java.util.*;
 
 public class CentralStation {
-    private static final String DB_URL = "jdbc:postgresql://postgres-service:5432/weather_db";
-    private static final String USER = "admin";
-    private static final String PASS = "password";
+    private static final String DB_URL = System.getenv("DATABASE_URL") != null ? System.getenv("DATABASE_URL") : "jdbc:postgresql://postgres-service:5432/weather_db";
+    private static final String USER = System.getenv("POSTGRES_USER") != null ? System.getenv("POSTGRES_USER") : "admin";
+    private static final String PASS = System.getenv("POSTGRES_PASSWORD") != null ? System.getenv("POSTGRES_PASSWORD") : "password";
 
     public static void main(String[] args) throws Exception {
         Properties props = new Properties();
-        props.put("bootstrap.servers", "kafka-service:9092");
+        String bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") != null ? System.getenv("KAFKA_BOOTSTRAP_SERVERS") : "kafka-service:9092";
+        props.put("bootstrap.servers", bootstrapServers);
         props.put("group.id", "central-station-group");
         props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");

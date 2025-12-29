@@ -1,107 +1,107 @@
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-    name: postgres-pv
-spec:
-    capacity:
-        storage: 1Gi
-    accessModes:
-        - ReadWriteOnce
-    persistentVolumeReclaimPolicy: Retain
-    storageClassName: standard
-    hostPath:
-        path: /mnt/data/postgres
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#     name: postgres-pv
+# spec:
+#     capacity:
+#         storage: 1Gi
+#     accessModes:
+#         - ReadWriteOnce
+#     persistentVolumeReclaimPolicy: Retain
+#     storageClassName: standard
+#     hostPath:
+#         path: /mnt/data/postgres
 
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-    name: postgres-pvc
-spec:
-    storageClassName: standard
-    accessModes: [ReadWriteOnce]
-    resources:
-        requests:
-            storage: 1Gi
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#     name: postgres-pvc
+# spec:
+#     storageClassName: standard
+#     accessModes: [ReadWriteOnce]
+#     resources:
+#         requests:
+#             storage: 1Gi
 
----
-apiVersion: v1
-kind: Service
-metadata:
-    name: postgres-service
-spec:
-    selector:
-        app: postgres
-    ports:
-        - protocol: TCP
-          port: 5432
-          targetPort: 5432
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#     name: postgres-service
+# spec:
+#     selector:
+#         app: postgres
+#     ports:
+#         - protocol: TCP
+#           port: 5432
+#           targetPort: 5432
 
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-    name: postgres-init
-data:
-    init.sql: |
-        CREATE TABLE IF NOT EXISTS weather_readings (
-            id BIGSERIAL PRIMARY KEY,
-            station_id BIGINT,
-            s_no BIGINT,
-            battery_status VARCHAR(10),
-            status_timestamp BIGINT,
-            humidity INT,
-            temperature INT,
-            wind_speed INT
-        );
-        CREATE INDEX IF NOT EXISTS idx_station_id ON weather_readings(station_id);
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#     name: postgres-init
+# data:
+#     init.sql: |
+#         CREATE TABLE IF NOT EXISTS weather_readings (
+#             id BIGSERIAL PRIMARY KEY,
+#             station_id BIGINT,
+#             s_no BIGINT,
+#             battery_status VARCHAR(10),
+#             status_timestamp BIGINT,
+#             humidity INT,
+#             temperature INT,
+#             wind_speed INT
+#         );
+#         CREATE INDEX IF NOT EXISTS idx_station_id ON weather_readings(station_id);
 
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-    name: postgres-db
-spec:
-    replicas: 1
-    selector:
-        matchLabels:
-            app: postgres
-    template:
-        metadata:
-            labels:
-                app: postgres
-        spec:
-            initContainers:
-                - name: fix-permissions
-                  image: busybox
-                  command: ["sh", "-c", "chown -R 999:999 /var/lib/postgresql/data"]
-                  volumeMounts:
-                      - name: postgres-storage
-                        mountPath: /var/lib/postgresql/data
-            containers:
-                - name: postgres
-                  image: postgres:15-alpine
-                  env:
-                      - name: POSTGRES_USER
-                        value: "admin"
-                      - name: POSTGRES_PASSWORD
-                        value: "password"
-                      - name: POSTGRES_DB
-                        value: "weather_db"
-                  volumeMounts:
-                      - name: postgres-storage
-                        mountPath: /var/lib/postgresql/data
-                      - name: postgres-init-script
-                        mountPath: /docker-entrypoint-initdb.d
-            volumes:
-                - name: postgres-storage
-                  persistentVolumeClaim:
-                      claimName: postgres-pvc
-                - name: postgres-init-script
-                  configMap:
-                      name: postgres-init
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#     name: postgres-db
+# spec:
+#     replicas: 1
+#     selector:
+#         matchLabels:
+#             app: postgres
+#     template:
+#         metadata:
+#             labels:
+#                 app: postgres
+#         spec:
+#             initContainers:
+#                 - name: fix-permissions
+#                   image: busybox
+#                   command: ["sh", "-c", "chown -R 999:999 /var/lib/postgresql/data"]
+#                   volumeMounts:
+#                       - name: postgres-storage
+#                         mountPath: /var/lib/postgresql/data
+#             containers:
+#                 - name: postgres
+#                   image: postgres:15-alpine
+#                   env:
+#                       - name: POSTGRES_USER
+#                         value: "admin"
+#                       - name: POSTGRES_PASSWORD
+#                         value: "password"
+#                       - name: POSTGRES_DB
+#                         value: "weather_db"
+#                   volumeMounts:
+#                       - name: postgres-storage
+#                         mountPath: /var/lib/postgresql/data
+#                       - name: postgres-init-script
+#                         mountPath: /docker-entrypoint-initdb.d
+#             volumes:
+#                 - name: postgres-storage
+#                   persistentVolumeClaim:
+#                       claimName: postgres-pvc
+#                 - name: postgres-init-script
+#                   configMap:
+#                       name: postgres-init
 
----
+# ---
 # Zookeeper headless service and StatefulSet (single replica for dev)
 apiVersion: v1
 kind: Service
@@ -214,7 +214,7 @@ spec:
         spec:
             containers:
                 - name: station
-                  image: hanine-weather-app:v3
+                  image: hanine-weather-app:latest
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.station.WeatherStation"]
                   env:
@@ -243,14 +243,20 @@ spec:
         spec:
             containers:
                 - name: central
-                  image: hanine-weather-app:v3
+                  image: hanine-weather-app:latest
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.central.CentralStation"]
                   env:
                       - name: KAFKA_BOOTSTRAP_SERVERS
                         value: "kafka-service:9092"
+                      # --- CLOUD DATABASE CONFIGURATION ---
+                      # Replace the internal postgres-service URL with your cloud DB endpoint
                       - name: DATABASE_URL
-                        value: "jdbc:postgresql://postgres-service:5432/weather_db"
+                        value: "jdbc:postgresql://interchange.proxy.rlwy.net:47527/railway"
+                      - name: POSTGRES_USER
+                        value: "postgres"
+                      - name: POSTGRES_PASSWORD
+                        value: "wOAUkXZizZKCKHJpwkeLHwDqvTJhJpWY"
 
 ---
 # Service to expose central station inside the cluster
@@ -284,7 +290,7 @@ spec:
         spec:
             containers:
                 - name: detector
-                  image: hanine-weather-app:v2
+                  image: hanine-weather-app:latest
                   imagePullPolicy: Never
                   args: ["com.netcentric.lab4.processor.RainingTrigger"]
                   env:

@@ -32,6 +32,7 @@ public class CentralStation {
             List<JsonNode> buffer = new ArrayList<>();
 
             try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+                initializeDatabase(conn);
                 System.out.println("Central Station is connected to Database. Waiting for data...");
                 
                 while (true) {
@@ -51,6 +52,26 @@ public class CentralStation {
                     }
                 }
             }
+        }
+    }
+
+    private static void initializeDatabase(Connection conn) throws SQLException {
+        String createTableSql = "CREATE TABLE IF NOT EXISTS weather_readings (" +
+                "id BIGSERIAL PRIMARY KEY, " +
+                "station_id BIGINT, " +
+                "s_no BIGINT, " +
+                "battery_status VARCHAR(10), " +
+                "status_timestamp BIGINT, " +
+                "humidity INT, " +
+                "temperature INT, " +
+                "wind_speed INT" +
+                ")";
+        String createIndexSql = "CREATE INDEX IF NOT EXISTS idx_station_id ON weather_readings(station_id)";
+        
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(createTableSql);
+            stmt.execute(createIndexSql);
+            System.out.println("Database tables initialized.");
         }
     }
 

@@ -86,7 +86,21 @@ docker build -t hanine-weather-app:latest .
 kubectl apply -f k8s/combined-manifests.yaml
 ```
 
-### 5. Verify Deployment
+### 5. Database Initialization
+
+The database is initialized **automatically** on startup via the `postgres-init` ConfigMap. This creates the `weather_readings` table and necessary indexes.
+
+If you need to manually re-run the initialization or apply new SQL:
+
+```bash
+# Get postgres pod name
+export PG_POD=$(kubectl get po -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+
+# Execute the local init script
+kubectl exec -i $PG_POD -- psql -U admin -d weather_db < k8s/init.sql.file
+```
+
+### 6. Verify Deployment
 
 ```bash
 # Watch pods starting

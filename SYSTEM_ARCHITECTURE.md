@@ -143,8 +143,37 @@ In a real-world distributed system, "Battery Status" serves three critical roles
 2.  **Data Integrity Verification**: In this lab, it is used to prove **Statistical Consistency** through the pipeline. By ensuring the producer (Station) sends a specific distribution (30% Low, 40% Medium, 30% High) and the consumer (DB) reflects that same distribution, we verify that the data wasn't corrupted or unfairly sampled during transport.
 3.  **Adaptive Logic**: Theoretically, it enables **Power-Aware Computing**. A real sensor might drop its transmission frequency when status is "Low" to extend its life. In our code, it's a fixed simulation, but it represents the type of "Context-Aware" data used to drive system decisions.
 
+## ⚠️ 7. Edge Cases & Failure Modes
+
+Every distributed system has "cracks." Here is where our implementation faces theoretical edge cases:
+
+### 1. The "Duplicate Message" Problem (At-Least-Once)
+
+If the **Central Station** writes a batch of 100 records to PostgreSQL but crashes _one millisecond_ before it can tell Kafka "I'm done" (committing the offset), what happens?
+
+-   **Result**: When the container restarts, it will read the _same 100 messages_ again from Kafka.
+-   **Fix**: In a production system, we would implement **Idempotency** (e.g., using a Unique Constraint in SQL on `station_id` + `timestamp` to ignore the duplicates).
+
+### 2. The "Poison Pill" Message
+
+What happens if one Weather Station sends malformed JSON (e.g., `{"temp": "HOT"}` instead of a number)?
+
+-   **Result**: The Central Station might crash when trying to parse the JSON, leading to a `CrashLoopBackOff`.
+-   **Fix**: We would implement a **Dead Letter Queue (DLQ)** where malformed messages are moved to a separate topic for inspection, allowing the main pipeline to continue.
+
+### 3. Backpressure & Database Bottlenecks
+
+What if we scale to **10,000 stations**?
+
+-   **Edge Case**: The stations might produce data faster than the database can write it.
+-   **Impact**: Kafka's disk will start to fill up (Consumer Lag).
+-   **Fix**: This is why we use **Batching** (saving 100 at a time). To scale further, we would **Partition** the Kafka topic and run multiple instances of the Central Station in a **Consumer Group**.
+
+### 4. Network Partitions (Split Brain)
+
+What happens if the network between the Central Station and Kafka is cut?
+
+-   **Result**: The Central Station will enter an error state. Kafka will hold the data (buffer) for up to 7 days (default retention).
+-   **Data Safety**: As long as Kafka is alive, no data is lost; the system simply "pauses" until the network is restored.
+
 ---
-
-```
-
-```
